@@ -1,0 +1,13 @@
+# Amazon Bedrock. No Ollama container.
+#   docker compose up --build
+services:
+  rag:
+    build: .
+    image: rag-papers-qa
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_PROVIDER: bedrock
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-eu.amazon.nova-micro-v1:0}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+    restart: "no"

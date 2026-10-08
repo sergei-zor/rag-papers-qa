@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  tests:
+    # Extraction, index and retrieval checks.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-all-MiniLM-L6-v2
+
+      - name: Build the index
+        run: python ingest/build_index.py
+
+      - name: Check the index # If all PDFs in data/papers appear in index plus two eqs.
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          import chromadb
+
+          col = chromadb.PersistentClient(path="chroma_db").get_collection("papers")
+
+          pdfs = {p.name for p in Path("data/papers").glob("*.pdf")}
+          indexed = {m["source"] for m in col.get()["metadatas"]}
+          missing = pdfs - indexed
+          assert not missing, f"not in the index: {missing}"
+
+          for value in ["90.66", "3.469"]:
+              assert col.get(where_document={"$contains": value})["ids"], f"{value} is missing"
+
+          print(f"OK: {col.count()} chunks")
+          EOF
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image (this also builds the index)
+        run: docker build -t rag-papers-qa .
+
+      - name: Start the container and check /health
+        run: |
+          docker run -d --name rag -p 8000:8000 -e LLM_PROVIDER=ollama rag-papers-qa
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then echo; exit 0; fi
+            sleep 2
+          done
+          docker logs rag
+          exit 1
+

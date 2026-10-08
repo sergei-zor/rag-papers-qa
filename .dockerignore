@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.venv
+venv
+__pycache__
+*.pyc
+.ipynb_checkpoints
+chroma_db
+
+README.md
+docker-compose*.yml

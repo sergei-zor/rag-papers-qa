@@ -1,0 +1,13 @@
+# Local mode, the container talks to an Ollama server running
+# on the host machine. No AWS account needed.
+#
+#   ollama pull qwen3.5:4b
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
+services:
+  rag:
+    environment:
+      LLM_PROVIDER: ollama
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
